@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JARVIS 3D Visualization</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #05070b 0%, #0a0f1a 100%);
+            color: #00e5ff;
+            font-family: 'Courier New', monospace;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100vh;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .info-panel {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(16, 20, 28, 0.9);
+            border: 2px solid #00e5ff;
+            border-radius: 10px;
+            padding: 20px;
+            max-width: 300px;
+            backdrop-filter: blur(10px);
+            z-index: 10;
+        }
+
+        .info-title {
+            font-size: 1.3em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px rgba(0, 229, 255, 0.8);
+        }
+
+        .info-stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0, 229, 255, 0.1);
+            font-size: 0.9em;
+        }
+
+        .info-stat:last-child {
+            border-bottom: none;
+        }
+
+        .stats-value {
+            color: #00e5ff;
+            font-weight: bold;
+        }
+
+        .corner-label {
+            position: fixed;
+            font-size: 0.9em;
+            color: #00e5ff99;
+            z-index: 10;
+            background: rgba(16, 20, 28, 0.8);
+            padding: 8px 12px;
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            border-radius: 5px;
+        }
+
+        .top-right {
+            top: 20px;
+            right: 20px;
+        }
+
+        .bottom-left {
+            bottom: 20px;
+            left: 20px;
+        }
+
+        .bottom-right {
+            bottom: 20px;
+            right: 20px;
+        }
+
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 20;
+            color: #00e5ff;
+            text-shadow: 0 0 10px rgba(0, 229, 255, 0.8);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(0, 229, 255, 0.2);
+            border-top: 3px solid #00e5ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay">
+        <div class="info-panel">
+            <div class="info-title">🤖 JARVIS System</div>
+            <div class="info-stat">
+                <span>Status:</span>
+                <span class="stats-value">ONLINE</span>
+            </div>
+            <div class="info-stat">
+                <span>CPU:</span>
+                <span class="stats-value" id="cpu-stat">42%</span>
+            </div>
+            <div class="info-stat">
+                <span>Memory:</span>
+                <span class="stats-value" id="mem-stat">58%</span>
+            </div>
+            <div class="info-stat">
+                <span>API Calls:</span>
+                <span class="stats-value" id="api-stat">2,847</span>
+            </div>
+            <div class="info-stat">
+                <span>Latency:</span>
+                <span class="stats-value" id="lat-stat">87ms</span>
+            </div>
+            <div class="info-stat">
+                <span>Uptime:</span>
+                <span class="stats-value" id="uptime-stat">98.5%</span>
+            </div>
+        </div>
+
+        <div class="corner-label top-right">
+            📊 Visualization Mode
+        </div>
+
+        <div class="corner-label bottom-left">
+            Quantanium-Jarvis v2.0<br>
+            <span id="timestamp"></span>
+        </div>
+
+        <div class="corner-label bottom-right">
+            Drag to rotate • Scroll to zoom
+        </div>
+    </div>
+
+    <div class="loading">
+        <div class="spinner"></div>
+        <div>Loading 3D Visualization...</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Three.js 3D Visualization
+        let scene, camera, renderer;
+        let particles = [];
+        let nodes = [];
+
+        function init() {
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x05070b);
+            scene.fog = new THREE.Fog(0x05070b, 1000, 3000);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+            camera.position.z = 150;
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.body.appendChild(renderer.domElement);
+
+            // Lighting
+            const light1 = new THREE.PointLight(0x00e5ff, 1, 500);
+            light1.position.set(100, 100, 100);
+            scene.add(light1);
+
+            const light2 = new THREE.PointLight(0x0099cc, 0.8, 500);
+            light2.position.set(-100, -100, 100);
+            scene.add(light2);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+            scene.add(ambientLight);
+
+            // Create visualization
+            createCentralNode();
+            createOrbitalNodes();
+            createParticles();
+            createConnections();
+
+            // Event listeners
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('wheel', onMouseWheel);
+
+            // Hide loading
+            document.querySelector('.loading').style.display = 'none';
+
+            // Update timestamp
+            updateTimestamp();
+            setInterval(updateTimestamp, 1000);
+
+            // Animation loop
+            animate();
+        }
+
+        function createCentralNode() {
+            const geometry = new THREE.IcosahedronGeometry(15, 4);
+            const material = new THREE.MeshPhongMaterial({
+                color: 0x00e5ff,
+                emissive: 0x00e5ff,
+                wireframe: false,
+                shininess: 100
+            });
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(0, 0, 0);
+            scene.add(mesh);
+
+            nodes.push({
+                mesh: mesh,
+                type: 'central',
+                speed: 0.005,
+                distance: 0
+            });
+        }
+
+        function createOrbitalNodes() {
+            const positions = [
+                { x: 80, y: 0, z: 0, color: 0x0099cc, label: 'Core' },
+                { x: 0, y: 80, z: 0, color: 0x00cc33, label: 'API' },
+                { x: 0, y: 0, z: 80, color: 0xffaa00, label: 'DB' },
+                { x: -80, y: 0, z: 0, color: 0xff6633, label: 'Voice' },
+                { x: 0, y: -80, z: 0, color: 0x00e5ff, label: 'Web' },
+                { x: 0, y: 0, z: -80, color: 0x9933ff, label: 'Mobile' }
+            ];
+
+            positions.forEach((pos, index) => {
+                const geometry = new THREE.OctahedronGeometry(8, 0);
+                const material = new THREE.MeshPhongMaterial({
+                    color: pos.color,
+                    emissive: pos.color,
+                    wireframe: false,
+                    shininess: 100
+                });
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.position.set(pos.x, pos.y, pos.z);
+                scene.add(mesh);
+
+                nodes.push({
+                    mesh: mesh,
+                    type: 'orbital',
+                    originalPosition: { x: pos.x, y: pos.y, z: pos.z },
+                    angle: index * (Math.PI * 2 / positions.length),
+                    speed: 0.01 + index * 0.002,
+                    distance: Math.sqrt(pos.x ** 2 + pos.y ** 2 + pos.z ** 2),
+                    color: pos.color,
+                    label: pos.label
+                });
+            });
+        }
+
+        function createParticles() {
+            const geometry = new THREE.BufferGeometry();
+            const particleCount = 1000;
+            const positions = new Float32Array(particleCount * 3);
+
+            for (let i = 0; i < particleCount * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 400;
+                positions[i + 1] = (Math.random() - 0.5) * 400;
+                positions[i + 2] = (Math.random() - 0.5) * 400;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+            const material = new THREE.PointsMaterial({
+                color: 0x00e5ff,
+                size: 0.5,
+                sizeAttenuation: true,
+                transparent: true,
+                opacity: 0.6
+            });
+
+            const particleSystem = new THREE.Points(geometry, material);
+            scene.add(particleSystem);
+
+            particles.push({
+                system: particleSystem,
+                positions: positions,
+                velocities: new Float32Array(particleCount * 3)
+            });
+
+            // Initialize velocities
+            for (let i = 0; i < particleCount * 3; i += 3) {
+                particles[0].velocities[i] = (Math.random() - 0.5) * 0.1;
+                particles[0].velocities[i + 1] = (Math.random() - 0.5) * 0.1;
+                particles[0].velocities[i + 2] = (Math.random() - 0.5) * 0.1;
+            }
+        }
+
+        function createConnections() {
+            const positions = [
+                { x: 80, y: 0, z: 0 },
+                { x: 0, y: 80, z: 0 },
+                { x: 0, y: 0, z: 80 },
+                { x: -80, y: 0, z: 0 },
+                { x: 0, y: -80, z: 0 },
+                { x: 0, y: 0, z: -80 }
+            ];
+
+            const material = new THREE.LineBasicMaterial({
+                color: 0x00e5ff,
+                transparent: true,
+                opacity: 0.3,
+                linewidth: 1
+            });
+
+            positions.forEach(pos => {
+                const geometry = new THREE.BufferGeometry();
+                const points = [
+                    new THREE.Vector3(0, 0, 0),
+                    new THREE.Vector3(pos.x, pos.y, pos.z)
+                ];
+                geometry.setFromPoints(points);
+                const line = new THREE.Line(geometry, material);
+                scene.add(line);
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Rotate central node
+            nodes[0].mesh.rotation.x += 0.002;
+            nodes[0].mesh.rotation.y += 0.003;
+
+            // Animate orbital nodes
+            nodes.slice(1).forEach((node, index) => {
+                node.angle += node.speed;
+                const baseDistance = 80;
+                node.mesh.position.x = Math.cos(node.angle) * baseDistance;
+                node.mesh.position.y = Math.sin(node.angle) * baseDistance;
+                node.mesh.position.z = Math.sin(node.angle * 0.5) * baseDistance * 0.5;
+
+                node.mesh.rotation.x += 0.01;
+                node.mesh.rotation.y += 0.01;
+            });
+
+            // Update particles
+            particles.forEach(particle => {
+                const positions = particle.positions;
+                const velocities = particle.velocities;
+
+                for (let i = 0; i < positions.length; i += 3) {
+                    positions[i] += velocities[i];
+                    positions[i + 1] += velocities[i + 1];
+                    positions[i + 2] += velocities[i + 2];
+
+                    if (Math.abs(positions[i]) > 200) velocities[i] *= -1;
+                    if (Math.abs(positions[i + 1]) > 200) velocities[i + 1] *= -1;
+                    if (Math.abs(positions[i + 2]) > 200) velocities[i + 2] *= -1;
+                }
+
+                particle.system.geometry.attributes.position.needsUpdate = true;
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        let mouseX = 0, mouseY = 0;
+        function onMouseMove(event) {
+            mouseX = event.clientX / window.innerWidth - 0.5;
+            mouseY = event.clientY / window.innerHeight - 0.5;
+
+            camera.position.x = mouseX * 100;
+            camera.position.y = -mouseY * 100;
+            camera.lookAt(0, 0, 0);
+        }
+
+        function onMouseWheel(event) {
+            event.preventDefault();
+            camera.position.z += event.deltaY * 0.1;
+            camera.position.z = Math.max(50, Math.min(500, camera.position.z));
+        }
+
+        function updateTimestamp() {
+            const now = new Date();
+            document.getElementById('timestamp').textContent = 
+                now.toLocaleString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                });
+
+            // Update stats
+            document.getElementById('cpu-stat').textContent = 
+                Math.floor(Math.random() * 40 + 30) + '%';
+            document.getElementById('mem-stat').textContent = 
+                Math.floor(Math.random() * 30 + 50) + '%';
+            document.getElementById('api-stat').textContent = 
+                (2800 + Math.floor(Math.random() * 100)).toLocaleString();
+            document.getElementById('lat-stat').textContent = 
+                (70 + Math.floor(Math.random() * 40)) + 'ms';
+        }
+
+        // Initialize
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
